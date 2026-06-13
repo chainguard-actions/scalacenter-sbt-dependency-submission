@@ -1,0 +1,56 @@
+name: 'Sbt Dependency Submission'
+description: 'Submits the dependency graph of an sbt build to the Github Submission API'
+author: 'The Scala Center'
+branding:
+  icon: 'package'
+  color: '#1a84ac'
+inputs:
+  working-directory:
+    description: "The relative path of the working directory of the sbt build."
+    required: false
+    default: ''
+  modules-ignore:
+    description: |
+      A list of space-separated names of modules to ignore. The action will not resolve nor submit the dependencies of these modules.
+      The name of a module contains the name of the project and its binary version.
+      Example: `foo_2.13 bar_2.13`
+    required: false
+    default: ''
+  configs-ignore:
+    description: |
+      A list of space-separated names of configurations to ignore. The action will not submit the dependencies of these configurations.
+      Example: `test scala-doc-tool`
+    required: false
+    default: ''
+  correlator:
+    description: |
+      An optional identifier to distinguish between multiple dependency snapshots of the same type.
+      Defaults to the concatenation of the workflow name, the job id and the action id.
+    required: false
+    default: ''
+  on-resolve-failure:
+    description: |
+      Either 'error' or 'warning'.
+      When a dependency resolution failure happens, if 'error' the job will fail and will not submit the snapshot.
+      If 'warning', the job will ignore the failing modules and submit the snapshot.
+    required: false
+    default: error
+  token:
+    description: GitHub Personal Access Token (PAT). Defaults to PAT provided by Action runner.
+    required: false
+    default: ${{ github.token }}
+  sbt-plugin-version:
+    description: Version of the sbt plugin to use.
+    required: false
+    default: '3.1.0'
+outputs:
+  submission-id:
+    description: The ID of the submission created by the action
+  submission-api-url:
+    description: The URL of the submission created by the action
+  snapshot-json-path:
+    description: The path of the snapshot JSON file created by the action
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
+  pre: chainguard-phonehome.js

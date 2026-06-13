@@ -1,0 +1,29 @@
+package ch.epfl.scala
+@target(Scala)
+@codecPackage("ch.epfl.scala")
+@fullCodec("JsonProtocol")
+
+enum OnFailure {
+  error
+  warning
+}
+
+## Input of the githubGenerateSnapshot command
+type DependencySnapshotInput {
+  onResolveFailure: ch.epfl.scala.OnFailure
+
+  ## A set of modules to ignore.
+  ## The name of module is composed of the name of the project and its binary version.
+  ## Example: foo_2.13
+  ignoredModules: [String]
+
+  ## A set of sbt configurations to ignore.
+  ## Examples:
+  ##  - "test" to ignore the test dependencies
+  ##  - "scala-doc-tool" to ignore the scaladoc dependencies
+  ##  - "scala-tool" to ignore the compiler dependencies
+  ignoredConfigs: [String]
+
+  ## The job correlator of the snapshot
+  correlator: String
+}
