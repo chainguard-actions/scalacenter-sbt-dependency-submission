@@ -1,0 +1,1 @@
+# scalacenter-sbt-dependency-submission
