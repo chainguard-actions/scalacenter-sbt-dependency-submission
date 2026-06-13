@@ -11,6 +11,7 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 | v3.1.0 | [`v3.1.0`](https://github.com/chainguard-actions/scalacenter-sbt-dependency-submission/tree/v3.1.0) | [`6408484`](https://github.com/scalacenter/sbt-dependency-submission/commit/64084844d2b0a9b6c3765f33acde2fbe3f5ae7d3) |
 | v3.2.0 | [`v3.2.0`](https://github.com/chainguard-actions/scalacenter-sbt-dependency-submission/tree/v3.2.0) | [`768f9b6`](https://github.com/scalacenter/sbt-dependency-submission/commit/768f9b6dc79b0f5f2d103a706681fa6e206b86bc) |
 | v3.2.1 | [`v3.2.1`](https://github.com/chainguard-actions/scalacenter-sbt-dependency-submission/tree/v3.2.1) | [`f432021`](https://github.com/scalacenter/sbt-dependency-submission/commit/f43202114d7522a4b233e052f82c2eea8d658134) |
+| v3.2.3 | [`v3.2.3`](https://github.com/chainguard-actions/scalacenter-sbt-dependency-submission/tree/v3.2.3) | [`d84eef4`](https://github.com/scalacenter/sbt-dependency-submission/commit/d84eef4c09e633bcf5f113bcad7fd5e9af1baee9) |
 
 ## Privacy
 
