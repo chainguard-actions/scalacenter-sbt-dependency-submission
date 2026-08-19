@@ -1,0 +1,32 @@
+name: Test default working directory (no sbt project)
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Ensure workspace root has no project folder
+        run: |
+          # The action repo root is not an sbt project (no project/ folder at root)
+          if [ -d "$GITHUB_WORKSPACE/project" ]; then
+            echo "Workspace has a project/ folder, removing for test"
+            rm -rf "$GITHUB_WORKSPACE/project"
+          fi
+          echo "Workspace root does not have a project/ folder"
+
+      - id: action
+        uses: .
+        continue-on-error: true
+
+      - name: Assert action failed because workspace root is not an sbt project
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail when no sbt project exists at working directory, but got: $OUTCOME"
+            exit 1
+          fi
+          echo "PASS: action correctly failed when working directory is not an sbt project"

@@ -1,0 +1,49 @@
+name: Test valid sbt project structure without sbt installed
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a valid sbt project structure
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/tests/fixtures/valid-sbt-project/project"
+          echo 'sbt.version=1.9.0' > "$GITHUB_WORKSPACE/tests/fixtures/valid-sbt-project/project/build.properties"
+          cat > "$GITHUB_WORKSPACE/tests/fixtures/valid-sbt-project/build.sbt" << 'EOF'
+          ThisBuild / scalaVersion := "2.13.12"
+          ThisBuild / organization := "com.example"
+          lazy val root = (project in file("."))
+            .settings(
+              name := "test-project"
+            )
+          EOF
+
+      - name: Verify sbt is not installed (expected in test environment)
+        run: |
+          if command -v sbt >/dev/null 2>&1; then
+            echo "sbt is installed, test scenario may behave differently"
+          else
+            echo "sbt is not installed, action will fail at sbt execution step as expected"
+          fi
+
+      - id: action
+        uses: .
+        with:
+          working-directory: tests/fixtures/valid-sbt-project
+        continue-on-error: true
+
+      - name: Assert action failed (either sbt not found or sbt execution failed)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          # The action should fail because sbt is not installed in the test environment
+          # OR because the sbt plugin cannot connect to GitHub API in this context.
+          # Either way, the action should not succeed without a real sbt build.
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail without sbt installed, but got: $OUTCOME"
+            exit 1
+          fi
+          echo "PASS: action correctly failed when sbt is not available"

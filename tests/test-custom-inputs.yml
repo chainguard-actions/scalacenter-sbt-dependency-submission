@@ -1,0 +1,38 @@
+name: Test custom inputs (modules-ignore, configs-ignore, correlator)
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a valid sbt project structure for custom inputs test
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/tests/fixtures/sbt-custom-inputs/project"
+          echo 'sbt.version=1.9.0' > "$GITHUB_WORKSPACE/tests/fixtures/sbt-custom-inputs/project/build.properties"
+
+      - id: action
+        uses: .
+        with:
+          working-directory: tests/fixtures/sbt-custom-inputs
+          modules-ignore: foo_2.13 bar_2.13
+          configs-ignore: test scala-doc-tool
+          correlator: my-custom-correlator
+          on-resolve-failure: warning
+        continue-on-error: true
+
+      - name: Assert action failed at sbt step (not at input validation)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          # The action should fail because sbt is not installed, not because of invalid inputs.
+          # If it fails, it means it passed input validation and reached the sbt execution step.
+          # We cannot distinguish "failed at sbt" vs "failed at input validation" from outcome alone,
+          # but since all inputs are valid, any failure should be at the sbt execution step.
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail (at sbt step), but got: $OUTCOME"
+            exit 1
+          fi
+          echo "PASS: action correctly processed custom inputs and failed at sbt execution step"

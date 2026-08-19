@@ -1,0 +1,31 @@
+name: Update dist
+on:
+  push:
+    branches:
+    - main
+
+permissions: {}
+
+jobs:
+  update-dist:
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - uses: actions/checkout@0717577d45739eb3c851188b29f50ed6c0b2194e # v2
+      - run: npm install
+      - run: npm run all
+      - name: Create Pull Request
+        id: cpr
+        uses: peter-evans/create-pull-request@18f7dc018cc2cd597073088f7c7591b9d1c02672 # v3
+        with:
+          commit-message: Update dist
+          author: GitHub <noreply@github.com>
+          delete-branch: true
+          title: Update dist
+      - name: Check Pull Request
+        env:
+          PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
+          PR_URL: ${{ steps.cpr.outputs.pull-request-url }}
+        run: |
+          echo "Pull Request Number - $PR_NUMBER"
+          echo "Pull Request URL - $PR_URL"

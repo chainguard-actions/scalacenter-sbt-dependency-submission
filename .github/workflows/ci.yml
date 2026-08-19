@@ -1,0 +1,118 @@
+name: Continuous Integration
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  scalafmt:
+    name: Scalafmt and Scalafix
+    runs-on: ubuntu-latest
+    permissions: {}
+    defaults:
+      run:
+        working-directory: sbt-plugin
+    steps:
+      - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
+      - uses: coursier/setup-action@7bde40eee928896f074dbb76d22dd772eed5c65f # v1.3.5
+        with:
+          apps: scalafmt sbt
+      - run: scalafmt --test
+      - run: sbt 'scalafixAll -test'
+  
+  test-sbt:
+    strategy:
+      matrix:
+        include:
+        - os: ubuntu-latest
+          jvm: 'adoptium:1.8.0-412'
+        - os: windows-latest
+          jvm: 'adoptium:1.11.0.23'
+        - os: macOS-latest
+          jvm: 'adoptium:1.17'
+      fail-fast: false
+    name: Test sbt plugin on ${{ matrix.os }} - ${{ matrix.jvm }}
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: sbt-plugin
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+    - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
+    - uses: coursier/setup-action@7bde40eee928896f074dbb76d22dd772eed5c65f # v1.3.5
+      with:
+        jvm: ${{ matrix.jvm }}
+        apps: sbt
+    - run: sbt test
+    - run: sbt "scripted dependency-manifest/* generate-snapshot/*"
+    - run: sbt "scripted submit-snapshot/*"
+      if: github.event_name == 'push' || github.event.pull_request.head.repo.owner.login == 'scalacenter'
+  
+  test-action:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.owner.login == 'scalacenter'
+    strategy:
+      matrix:
+        include:
+        - os: ubuntu-latest
+          jvm: 'adoptium:1.11.0.23'
+        - os: macOS-latest
+          jvm: 'adoptium:1.17'
+        - os: windows-latest
+          jvm: 'adoptium:1.8.0-412'
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+      fail-fast: false
+    name: Test Github action on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
+    - uses: coursier/setup-action@7bde40eee928896f074dbb76d22dd772eed5c65f # v1.3.5
+      with:
+        jvm: ${{ matrix.jvm }}
+        apps: sbt
+    - run: sbt publishLocal
+      working-directory: sbt-plugin
+    - run: npm version
+    - run: npm install
+    - run: npm run all
+    - name: Run sbt-dependency-submission
+      uses: ./
+      id: dependency-submission
+      with:
+        working-directory: sbt-plugin
+        sbt-plugin-version: 3.1.0-SNAPSHOT
+    - name: Check outputs
+      env:
+        SUBMISSION_ID: ${{ steps.dependency-submission.outputs.submission-id }}
+        SUBMISSION_API_URL: ${{ steps.dependency-submission.outputs.submission-api-url }}
+        SNAPSHOT_JSON_PATH: ${{ steps.dependency-submission.outputs.snapshot-json-path }}
+      run: |
+        echo "$SUBMISSION_ID"
+        echo "$SUBMISSION_API_URL"
+        echo "$SNAPSHOT_JSON_PATH"
+    - name: Log snapshot JSON
+      env:
+        SNAPSHOT_JSON_PATH: ${{ steps.dependency-submission.outputs.snapshot-json-path }}
+      run: |
+        cat "$SNAPSHOT_JSON_PATH" | jq
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write # for comment-summary-in-pr
+    needs: test-action
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Dependency Review
+        uses: actions/dependency-review-action@cc4f6536e38d1126c5e3b0683d469a14f23bfea4 # v3
+        with:
+          comment-summary-in-pr: always
