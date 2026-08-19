@@ -1,0 +1,32 @@
+name: Test invalid on-resolve-failure input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a minimal sbt project structure
+        run: |
+          mkdir -p /tmp/fake-sbt-project/project
+          echo 'sbt.version=1.9.0' > /tmp/fake-sbt-project/project/build.properties
+
+      - id: action
+        uses: .
+        with:
+          working-directory: /tmp/fake-sbt-project
+          on-resolve-failure: invalid-value
+          token: ${{ github.token }}
+        continue-on-error: true
+
+      - name: Assert action failed due to invalid on-resolve-failure
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail with invalid on-resolve-failure, but outcome was '$OUTCOME'"
+            exit 1
+          fi
+          echo "PASS: action correctly failed with invalid on-resolve-failure value"

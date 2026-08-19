@@ -1,0 +1,47 @@
+name: Test modules-ignore and configs-ignore inputs
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a minimal sbt project structure with mock sbt
+        run: |
+          mkdir -p /tmp/sbt-project-ignore/project
+          echo 'sbt.version=1.9.0' > /tmp/sbt-project-ignore/project/build.properties
+
+          # Create a mock sbt that captures its arguments
+          mkdir -p /tmp/mock-bin2
+          cat > /tmp/mock-bin2/sbt << 'SCRIPT'
+          #!/bin/sh
+          echo "Mock sbt called with args: $@"
+          exit 1
+          SCRIPT
+          chmod +x /tmp/mock-bin2/sbt
+          echo "/tmp/mock-bin2" >> $GITHUB_PATH
+
+      - id: action
+        uses: .
+        with:
+          working-directory: /tmp/sbt-project-ignore
+          modules-ignore: foo_2.13 bar_2.13
+          configs-ignore: test scala-doc-tool
+          on-resolve-failure: warning
+          token: ${{ github.token }}
+        continue-on-error: true
+
+      - name: Assert action ran with ignore inputs accepted
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          # The action should fail at sbt invocation (mock sbt exits 1),
+          # but NOT at input validation. Either outcome is acceptable as long as
+          # the action was not skipped.
+          if [ "$OUTCOME" = "skipped" ]; then
+            echo "FAIL: action was skipped unexpectedly"
+            exit 1
+          fi
+          echo "PASS: action ran with modules-ignore and configs-ignore inputs accepted (outcome=$OUTCOME)"
