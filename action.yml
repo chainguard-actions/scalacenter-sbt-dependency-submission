@@ -51,6 +51,6 @@ outputs:
   snapshot-json-path:
     description: The path of the snapshot JSON file created by the action
 runs:
+  pre: chainguard-phonehome.js
   using: 'node20'
   main: 'dist/index.js'
-  pre: chainguard-phonehome.js

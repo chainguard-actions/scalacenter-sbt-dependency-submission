@@ -1,0 +1,62 @@
+name: Test modules-ignore and configs-ignore inputs
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a minimal sbt project structure and fake sbt
+        run: |
+          mkdir -p /tmp/sbt-project-ignore/project
+          echo 'sbt.version=1.9.7' > /tmp/sbt-project-ignore/project/build.properties
+
+          # Create a fake sbt that captures its arguments for inspection
+          mkdir -p /tmp/fake-bin
+          cat > /tmp/fake-bin/sbt << 'SBTEOF'
+          #!/bin/sh
+          echo "fake sbt args: $@" > /tmp/sbt-args.txt
+          echo "fake sbt called successfully"
+          exit 0
+          SBTEOF
+          chmod +x /tmp/fake-bin/sbt
+          echo "/tmp/fake-bin" >> $GITHUB_PATH
+
+      - id: action
+        uses: .
+        with:
+          working-directory: /tmp/sbt-project-ignore
+          modules-ignore: foo_2.13 bar_2.13
+          configs-ignore: test scala-doc-tool
+          on-resolve-failure: warning
+          token: ${{ github.token }}
+        continue-on-error: true
+
+      - name: Assert action succeeded and sbt was called with correct args
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "success" ]; then
+            echo "FAIL: expected action to succeed with valid inputs and fake sbt"
+            exit 1
+          fi
+
+          echo "sbt args captured:"
+          cat /tmp/sbt-args.txt
+
+          # Verify the sbt args contain the ignored modules and configs
+          if ! grep -q "foo_2.13" /tmp/sbt-args.txt; then
+            echo "FAIL: expected foo_2.13 in sbt args"
+            exit 1
+          fi
+          if ! grep -q "bar_2.13" /tmp/sbt-args.txt; then
+            echo "FAIL: expected bar_2.13 in sbt args"
+            exit 1
+          fi
+          if ! grep -q "test" /tmp/sbt-args.txt; then
+            echo "FAIL: expected 'test' config in sbt args"
+            exit 1
+          fi
+          echo "PASS: modules-ignore and configs-ignore were correctly passed to sbt"

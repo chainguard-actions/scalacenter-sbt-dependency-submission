@@ -1,0 +1,44 @@
+name: Test on-resolve-failure warning value is accepted
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a minimal sbt project structure and fake sbt
+        run: |
+          mkdir -p /tmp/sbt-project-warn/project
+          echo 'sbt.version=1.9.7' > /tmp/sbt-project-warn/project/build.properties
+
+          # Create a fake sbt that exits 0 to simulate successful execution
+          mkdir -p /tmp/fake-bin
+          cat > /tmp/fake-bin/sbt << 'SBTEOF'
+          #!/bin/sh
+          echo "fake sbt called with args: $@"
+          exit 0
+          SBTEOF
+          chmod +x /tmp/fake-bin/sbt
+          echo "/tmp/fake-bin" >> $GITHUB_PATH
+
+      - id: action
+        uses: .
+        with:
+          working-directory: /tmp/sbt-project-warn
+          on-resolve-failure: warning
+          token: ${{ github.token }}
+        continue-on-error: true
+
+      - name: Assert warning value is accepted and action succeeds with fake sbt
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          # With a fake sbt that exits 0, the action should succeed
+          # (the 'warning' value is valid, so no input validation failure)
+          if [ "$OUTCOME" != "success" ]; then
+            echo "FAIL: expected action to succeed with on-resolve-failure=warning and fake sbt"
+            exit 1
+          fi
+          echo "PASS: on-resolve-failure=warning was accepted as a valid value"

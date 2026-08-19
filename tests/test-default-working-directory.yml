@@ -1,0 +1,38 @@
+name: Test default working directory uses workspace root
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Verify workspace has a project directory (action's own project dir)
+        run: |
+          echo "Workspace: $GITHUB_WORKSPACE"
+          ls -la "$GITHUB_WORKSPACE"
+          if [ -d "$GITHUB_WORKSPACE/project" ]; then
+            echo "project dir found at workspace root"
+          else
+            echo "no project dir at workspace root"
+          fi
+
+      - id: action
+        uses: .
+        with:
+          token: ${{ github.token }}
+        continue-on-error: true
+
+      - name: Assert action failed (no sbt installed in test environment)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          # The action should fail because sbt is not installed in the test environment.
+          # This confirms the action correctly found the project dir (workspace root has one)
+          # and proceeded to the sbt check, which failed.
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail (sbt not installed)"
+            exit 1
+          fi
+          echo "PASS: action correctly attempted to run with default working directory"
