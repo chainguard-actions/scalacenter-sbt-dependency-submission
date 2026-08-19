@@ -1,0 +1,2 @@
+This directory intentionally has no 'project/' subdirectory.
+It is used to test that the action fails when the sbt project directory is missing.

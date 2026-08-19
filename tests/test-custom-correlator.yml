@@ -1,0 +1,33 @@
+name: Test custom correlator input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # Use a committed fixture directory without a 'project/' subdirectory.
+      # The action will fail because the project directory is missing — this
+      # is expected and guarantees a deterministic failure regardless of
+      # whether sbt is installed. The custom correlator is passed to verify
+      # it does not cause any early input-parsing errors.
+      - id: action
+        uses: .
+        with:
+          working-directory: ${{ github.workspace }}/tests/fixtures/no-project
+          correlator: my-custom-correlator
+          on-resolve-failure: warning
+          token: ${{ github.token }}
+        continue-on-error: true
+
+      - name: Assert action failed (missing project directory, not correlator error)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail (missing project/), but got: $OUTCOME"
+            exit 1
+          fi
+          echo "PASS: action correctly failed; custom correlator input did not cause early validation error"

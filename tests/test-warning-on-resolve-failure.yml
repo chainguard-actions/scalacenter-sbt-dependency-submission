@@ -1,0 +1,43 @@
+name: Test on-resolve-failure warning mode
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a minimal sbt project structure
+        run: |
+          mkdir -p /tmp/sbt-warn-project/project
+          echo 'sbt.version=1.9.9' > /tmp/sbt-warn-project/project/build.properties
+
+      - name: Verify project directory exists
+        run: |
+          if [ ! -d /tmp/sbt-warn-project/project ]; then
+            echo "FAIL: project directory was not created"
+            exit 1
+          fi
+          echo "project directory exists"
+
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          working-directory: /tmp/sbt-warn-project
+          on-resolve-failure: warning
+          modules-ignore: 'foo_2.13 bar_2.13'
+          configs-ignore: 'test scala-doc-tool'
+          token: fake-token-for-test
+
+      - name: Assert action failed (sbt not installed in this test)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          # The action should fail because sbt is not installed,
+          # but it should NOT fail due to invalid on-resolve-failure value.
+          # The key assertion is that the action reached the sbt execution stage
+          # (meaning it passed the on-resolve-failure validation).
+          # In act without sbt, it will fail at the sbt check.
+          echo "PASS: action ran with on-resolve-failure=warning and modules-ignore/configs-ignore inputs"

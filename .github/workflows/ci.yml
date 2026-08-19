@@ -1,0 +1,125 @@
+name: Continuous Integration
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  scalafmt:
+    name: Scalafmt and Scalafix
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: sbt-plugin
+    steps:
+      - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3
+      - uses: coursier/setup-action@7bde40eee928896f074dbb76d22dd772eed5c65f # v1.3.5
+        with:
+          apps: scalafmt sbt
+      - run: scalafmt --test
+      - run: sbt 'scalafixAll -test'
+  
+  test-sbt:
+    strategy:
+      matrix:
+        include:
+        - os: ubuntu-latest
+          jvm: '8'
+        - os: windows-latest
+          jvm: '11'
+        - os: macOS-latest
+          jvm: '17'
+      fail-fast: false
+    name: Test sbt plugin on ${{ matrix.os }} - ${{ matrix.jvm }}
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: sbt-plugin
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+    - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3
+    - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
+      with:
+        distribution: 'temurin'
+        java-version: ${{ matrix.jvm }}
+        cache: 'sbt'
+    - uses: sbt/setup-sbt@6444f4c8111de4b9059c3975def104b03cfaa5f0 # v1
+    - run: sbt test
+    - run: sbt "scripted dependency-manifest/* generate-snapshot/*"
+    - run: sbt ++3.x "scripted dependency-manifest/* generate-snapshot/generate-snapshot"
+      if: ${{ matrix.jvm != 8 && matrix.jvm != 11 }}
+    - run: sbt "scripted submit-snapshot/*"
+      if: github.event_name == 'push' || github.event.pull_request.head.repo.owner.login == 'scalacenter'
+  
+  test-action:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.owner.login == 'scalacenter'
+    strategy:
+      matrix:
+        include:
+        - os: ubuntu-latest
+          jvm: '11'
+        - os: macOS-latest
+          jvm: '17'
+        - os: windows-latest
+          jvm: '8'
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+      fail-fast: false
+    name: Test Github action on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3
+    - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
+      with:
+        distribution: 'temurin'
+        java-version: ${{ matrix.jvm }}
+        cache: 'sbt'
+    - uses: sbt/setup-sbt@6444f4c8111de4b9059c3975def104b03cfaa5f0 # v1
+    - run: sbt publishLocal
+      working-directory: sbt-plugin
+    - run: npm version
+    - run: npm install
+    - run: npm run all
+    - name: Run sbt-dependency-submission
+      uses: ./
+      id: dependency-submission
+      with:
+        working-directory: sbt-plugin
+        sbt-plugin-version: 3.2.2-SNAPSHOT
+    - name: Check outputs
+      env:
+        SUBMISSION_ID: ${{ steps.dependency-submission.outputs.submission-id }}
+        SUBMISSION_API_URL: ${{ steps.dependency-submission.outputs.submission-api-url }}
+        SNAPSHOT_JSON_PATH: ${{ steps.dependency-submission.outputs.snapshot-json-path }}
+      run: |
+        echo "$SUBMISSION_ID"
+        echo "$SUBMISSION_API_URL"
+        echo "$SNAPSHOT_JSON_PATH"
+    - name: Log snapshot JSON
+      env:
+        SNAPSHOT_JSON_PATH: ${{ steps.dependency-submission.outputs.snapshot-json-path }}
+      run: |
+        cat "$SNAPSHOT_JSON_PATH" | jq
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write # for comment-summary-in-pr
+    needs: test-action
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Dependency Review
+        uses: actions/dependency-review-action@cc4f6536e38d1126c5e3b0683d469a14f23bfea4 # v3
+        with:
+          comment-summary-in-pr: always
